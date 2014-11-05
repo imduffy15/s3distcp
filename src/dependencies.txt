@@ -1,0 +1,9 @@
+com.google.gson 1.6.0 http://mvnrepository.com/artifact/com.google.code.gson/gson/1.6
+com.google.common guava
+com.amazonaws  1.1.7.1
+com.amazon.external (app code)
+org.apache.log4j unknown
+org.apache.hadoop.fs.common 2.5.1
+emr.hbase.options unknown (app code)
+
+
