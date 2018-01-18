@@ -3,7 +3,7 @@ set -e
 mkdir -p tmp/
 if [ ! -e tmp/hadoop-snappy ]; then
   git clone https://github.com/electrum/hadoop-snappy.git tmp/hadoop-snappy
-  cd tmp/hadoop-snappy && mvn install && cd -
+  cd tmp/hadoop-snappy && mvn install -Dsnappy.prefix="/usr/local/Cellar/snappy/1.1.7_1" && cd -
 fi
 if [ ! -e tmp/hadoop-mapred-0.22.0.jar ]; then
   curl -o tmp/hadoop-mapred-0.22.0.jar http://central.maven.org/maven2/org/apache/hadoop/hadoop-mapred/0.22.0/hadoop-mapred-0.22.0.jar

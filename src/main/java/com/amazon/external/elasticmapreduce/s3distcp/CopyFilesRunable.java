@@ -1,6 +1,16 @@
 package com.amazon.external.elasticmapreduce.s3distcp;
 
 import java.security.*;
+
+import org.apache.avro.Schema;
+import org.apache.avro.file.CodecFactory;
+import org.apache.avro.file.DataFileConstants;
+import org.apache.avro.file.DataFileStream;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.fs.common.*;
 import org.apache.hadoop.conf.*;
 import java.io.*;
@@ -57,6 +67,10 @@ class CopyFilesRunable implements Runnable
         while (!finished && numRetriesRemaining > 0) {
             --numRetriesRemaining;
             OutputStream outputStream = null;
+            DataFileWriter<GenericRecord> writer = new DataFileWriter<GenericRecord>(new GenericDatumWriter<GenericRecord>());
+            Schema schema = null;
+            Map<String, byte[]> metadata = new TreeMap<>();
+            String inputCodec = null;
             curTempPath = new Path(this.tempPath + UUID.randomUUID());
             try {
                 CopyFilesRunable.LOG.info((Object)("Opening temp file: " + curTempPath.toString()));
@@ -66,13 +80,53 @@ class CopyFilesRunable implements Runnable
                     try {
                         CopyFilesRunable.LOG.info((Object)("Starting download of " + fileInfo.inputFileName + " to " + curTempPath));
                         final InputStream inputStream = this.reducer.openInputStream(new Path(fileInfo.inputFileName.toString()));
-                        try {
-                            final long bytesCopied = this.copyStream(inputStream, outputStream, md);
-                            CopyFilesRunable.LOG.info((Object)("Copied " + bytesCopied + " bytes"));
+                        DataFileStream<GenericRecord> reader = new DataFileStream<GenericRecord>(inputStream, new GenericDatumReader<GenericRecord>());
+
+                        if (schema == null) {
+                            // this is the first file - set up the writer, and store the
+                            // Schema & metadata we'll use.
+                            schema = reader.getSchema();
+                            for (String key : reader.getMetaKeys()) {
+                                if (!DataFileWriter.isReservedMeta(key)) {
+                                    byte[] metadatum = reader.getMeta(key);
+                                    metadata.put(key, metadatum);
+                                    writer.setMeta(key, metadatum);
+                                }
+                            }
+                            inputCodec = reader.getMetaString(DataFileConstants.CODEC);
+                            if(inputCodec == null) {
+                                inputCodec = DataFileConstants.NULL_CODEC;
+                            }
+                            writer.setCodec(CodecFactory.fromString(inputCodec));
+                            writer.create(schema, outputStream);
+                        } else {
+                            // check that we're appending to the same schema & metadata.
+                            if (!schema.equals(reader.getSchema())) {
+                                reader.close();
+                                throw new RuntimeException("Input files have different schemas");
+                            }
+                            for (String key : reader.getMetaKeys()) {
+                                if (!DataFileWriter.isReservedMeta(key)) {
+                                    byte[] metadatum = reader.getMeta(key);
+                                    byte[] writersMetadatum = metadata.get(key);
+                                    if(!Arrays.equals(metadatum, writersMetadatum)) {
+                                        reader.close();
+                                        throw new RuntimeException("input files have different non-reserved metadata");
+                                    }
+                                }
+                            }
+                            String thisCodec = reader.getMetaString(DataFileConstants.CODEC);
+                            if(thisCodec == null) {
+                                thisCodec = DataFileConstants.NULL_CODEC;
+                            }
+                            if (!inputCodec.equals(thisCodec)) {
+                                reader.close();
+                                throw new RuntimeException("input files have different codecs");
+                            }
                         }
-                        finally {
-                            inputStream.close();
-                        }
+
+                        writer.appendAllFrom(reader,false);
+                        reader.close();
                     }
                     catch (Exception e) {
                         if (outputStream != null && outputStream instanceof Abortable) {
@@ -85,8 +139,8 @@ class CopyFilesRunable implements Runnable
                     finished = true;
                     CopyFilesRunable.LOG.info((Object)("Finished downloading " + fileInfo.inputFileName));
                 }
+                digest = new DigestOutputStream(outputStream, md).getMessageDigest().digest();
                 outputStream.close();
-                digest = md.digest();
                 return new ProcessedFile(digest, curTempPath);
             }
             catch (Exception e2) {

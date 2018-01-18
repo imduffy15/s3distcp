@@ -16,6 +16,11 @@
         <url>http://maven.twttr.com/</url>
     </repository>
   </repositories>
+  <properties>
+    <java.version>1.7</java.version>
+    <maven.compiler.source>1.7</maven.compiler.source>
+    <maven.compiler.target>1.7</maven.compiler.target>
+  </properties>
   <build>
    <plugins>
       <plugin>
@@ -50,8 +55,6 @@
     <finalName>${project.artifactId}-${project.version}</finalName>
     <testOutputDirectory>target/test-classes</testOutputDirectory>
     <sourceDirectory>src/main/java</sourceDirectory>
-    <scriptSourceDirectory>src/main/scripts</scriptSourceDirectory>
-    <testSourceDirectory>src/test/java</testSourceDirectory>
     <resources>
       <resource>
         <directory>src/main/resources</directory>
@@ -98,6 +101,11 @@
       <groupId>com.hadoop.gplcompression</groupId>
       <artifactId>hadoop-lzo</artifactId>
       <version>0.4.19</version>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.avro</groupId>
+        <artifactId>avro</artifactId>
+        <version>1.8.2</version>
     </dependency>
   </dependencies>
 </project>
