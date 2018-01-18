@@ -1,4 +1,4 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 import java.util.concurrent.*;
 import org.apache.commons.logging.*;
@@ -36,7 +36,8 @@ public class SimpleExecutor implements Executor
     
     private void startWorkers() {
         for (int i = 0; i < this.workers.length; ++i) {
-            (this.workers[i] = new Thread(new Worker(this))).start();
+            (this.workers[i] = new Thread(new Worker(this))).setName("s3distcp-simpler-executor-worker-" + i);
+            this.workers[i].start();
         }
     }
     

@@ -1,4 +1,4 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 public class ManifestEntry
 {

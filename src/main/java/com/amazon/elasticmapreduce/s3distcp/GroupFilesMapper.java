@@ -1,16 +1,17 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
+import org.apache.hadoop.mapreduce.*;
 import org.apache.hadoop.io.*;
+import org.apache.hadoop.conf.*;
 import java.io.*;
-import org.apache.hadoop.mapred.*;
-import java.net.*;
+import org.apache.hadoop.fs.*;
 import java.util.regex.*;
 import org.apache.commons.logging.*;
 
-public class GroupFilesMapper implements Mapper<LongWritable, FileInfo, Text, FileInfo>
+public class GroupFilesMapper extends Mapper<LongWritable, FileInfo, Text, FileInfo>
 {
     private static final Log log;
-    protected JobConf conf;
+    protected Configuration conf;
     protected Pattern pattern;
     private String destDir;
     
@@ -19,30 +20,21 @@ public class GroupFilesMapper implements Mapper<LongWritable, FileInfo, Text, Fi
         this.pattern = null;
     }
     
-    public void configure(final JobConf conf) {
-        this.conf = conf;
-        final String patternString = conf.get("s3DistCp.listfiles.gropubypattern");
+    protected void setup(final Mapper.Context context) throws IOException, InterruptedException {
+        this.conf = context.getConfiguration();
+        final String patternString = this.conf.get("s3DistCp.listfiles.groupByPattern");
         if (patternString != null) {
             this.pattern = Pattern.compile(patternString);
         }
-        this.destDir = conf.get("s3DistCp.copyfiles.destDir");
+        this.destDir = this.conf.get("s3DistCp.copyfiles.destDir");
     }
     
-    public void close() throws IOException {
-    }
-    
-    public void map(final LongWritable fileUID, final FileInfo fileInfo, final OutputCollector<Text, FileInfo> collector, final Reporter reporter) throws IOException {
-        Text key;
-        try {
-            String path = new URI(fileInfo.inputFileName.toString()).getPath();
-            if (path.startsWith(this.destDir)) {
-                path = path.substring(this.destDir.length());
-            }
-            key = new Text(path);
+    protected void map(final LongWritable fileUID, final FileInfo fileInfo, final Mapper.Context context) throws IOException, InterruptedException {
+        String path = new Path(fileInfo.inputFileName.toString()).toUri().getPath();
+        if (path.startsWith(this.destDir)) {
+            path = path.substring(this.destDir.length());
         }
-        catch (URISyntaxException e) {
-            throw new RuntimeException("Bad URI: " + fileInfo.inputFileName.toString(), e);
-        }
+        Text key = new Text(path);
         if (this.pattern != null) {
             final Matcher matcher = this.pattern.matcher(fileInfo.inputFileName.toString());
             if (matcher.matches()) {
@@ -55,7 +47,7 @@ public class GroupFilesMapper implements Mapper<LongWritable, FileInfo, Text, Fi
             }
         }
         GroupFilesMapper.log.debug((Object)("Adding " + key.toString() + ": " + fileInfo.inputFileName.toString()));
-        collector.collect(key, fileInfo);
+        context.write((Object)key, (Object)fileInfo);
     }
     
     static {

@@ -1,10 +1,15 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 import java.security.*;
+import com.google.common.base.*;
 import java.util.concurrent.*;
+import java.net.*;
+import org.apache.commons.logging.*;
 
 public class Utils
 {
+    private static final Log LOG;
+    
     public static String randomString(long value) {
         final StringBuffer result = new StringBuffer();
         if (value < 0L) {
@@ -43,28 +48,48 @@ public class Utils
     }
     
     public static String replaceSuffix(final String name, final String suffix) {
-        if (getSuffix(name).equals("")) {
-            return name + suffix;
-        }
         final int index = name.lastIndexOf(46);
         return name.substring(0, index) + suffix;
     }
     
-    public static boolean isS3Scheme(final String scheme) {
-        return scheme.equals("s3") || scheme.equals("s3n");
+    public static String appendSuffix(final String name, final String suffix) {
+        return name + suffix;
     }
     
-    public static ThreadPoolExecutor createDefaultExecutorService() {
+    public static boolean isS3Scheme(final String scheme) {
+        return "s3".equals(scheme) || "s3n".equals(scheme);
+    }
+    
+    public static String cleanupColonsAndSlashes(String s) {
+        if (Strings.isNullOrEmpty(s)) {
+            return s;
+        }
+        s = s.replaceAll(":", "/");
+        return Joiner.on("/").skipNulls().join(Splitter.on("/").trimResults().omitEmptyStrings().split((CharSequence)s));
+    }
+    
+    public static ThreadPoolExecutor createExecutorService(final String threadName, final int numWorkers) {
         final ThreadFactory threadFactory = new ThreadFactory() {
             private int threadCount = 1;
             
             @Override
             public Thread newThread(final Runnable r) {
                 final Thread thread = new Thread(r);
-                thread.setName("s3-transfer-manager-worker-" + this.threadCount++);
+                thread.setName(threadName + "-" + this.threadCount++);
+                thread.setDaemon(true);
                 return thread;
             }
         };
-        return (ThreadPoolExecutor)Executors.newFixedThreadPool(10, threadFactory);
+        Utils.LOG.info((Object)("Created executor service " + threadName + " with " + numWorkers + " worker threads"));
+        final ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor)Executors.newFixedThreadPool(numWorkers, threadFactory);
+        return threadPoolExecutor;
+    }
+    
+    public static String uriToBucket(final URI uri) {
+        return uri.getAuthority();
+    }
+    
+    static {
+        LOG = LogFactory.getLog((Class)Utils.class);
     }
 }

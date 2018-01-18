@@ -1,4 +1,4 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 import org.apache.hadoop.util.*;
 import java.io.*;

@@ -1,4 +1,4 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 import com.amazonaws.auth.*;
 import org.apache.hadoop.conf.*;
@@ -22,12 +22,10 @@ public class ConfigurationCredentials implements AWSCredentials
         this.awsAWSSecretKey = this.getConfigOrThrow(configuration, "fs.s3n.awsSecretAccessKey");
     }
     
-    @Override
     public String getAWSAccessKeyId() {
         return this.awsAccessKeyId;
     }
     
-    @Override
     public String getAWSSecretKey() {
         return this.awsAWSSecretKey;
     }

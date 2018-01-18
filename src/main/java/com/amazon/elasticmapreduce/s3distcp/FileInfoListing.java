@@ -1,13 +1,12 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.conf.*;
 import java.util.*;
-import com.google.gson.*;
 import java.util.zip.*;
+import com.google.gson.*;
 import java.io.*;
 import org.apache.hadoop.io.*;
-import java.net.*;
 import java.util.regex.*;
 import org.apache.commons.logging.*;
 
@@ -35,17 +34,18 @@ public class FileInfoListing
         this.fileIndex = 0L;
         this.recordIndex = 0L;
         this.recordsInThisFile = 0L;
-        this.gson = new Gson();
         this.conf = conf;
         this.defaultSrcDir = srcDir;
         this.tmpDir = tmpDir;
         this.outputDir = outputDir;
         this.recordsPerFile = 500000L;
         this.recordIndex = startingIndex;
-        this.previousManifest = previousManifest;
         if (manifestFile != null) {
             this.manifestStream = new GZIPOutputStream(new FileOutputStream(manifestFile));
         }
+        final GsonBuilder gsonBuilder = new GsonBuilder().disableHtmlEscaping();
+        this.gson = gsonBuilder.create();
+        this.previousManifest = previousManifest;
     }
     
     public void openNewFile() {
@@ -96,22 +96,18 @@ public class FileInfoListing
         }
         ++this.recordIndex;
         ++this.recordsInThisFile;
-        String outputFilePath = this.getOutputFilePath(filePath, srcDir);
-        final String basePath = this.getBaseName(filePath, srcDir);
-        String manifestSrcDir = this.outputDir.toString();
+        final String outputFilePath = this.getOutputFilePath(filePath, srcDir);
+        final String baseName = this.getBaseName(filePath, srcDir);
+        final String manifestSrcDir = this.outputDir.toString();
         try {
             final FileInfo fileInfo = new FileInfo(this.recordIndex, filePathString, outputFilePath, fileSize);
             FileInfoListing.LOG.debug((Object)("Adding " + fileInfo));
-            if (this.previousManifest != null && this.previousManifest.containsKey(basePath) && this.previousManifest.get(basePath).size == fileSize) {
-                outputFilePath = this.previousManifest.get(basePath).path;
-                manifestSrcDir = this.previousManifest.get(basePath).srcDir;
-            }
-            else {
+            if (this.previousManifest == null || !this.previousManifest.containsKey(baseName) || this.previousManifest.get(baseName).size != fileSize) {
                 this.writer.append((Writable)new LongWritable(this.recordIndex), (Writable)fileInfo);
             }
             if (this.manifestStream != null) {
-                final ManifestEntry entry = new ManifestEntry(URLDecoder.decode(outputFilePath, "UTF-8"), URLDecoder.decode(basePath, "UTF-8"), manifestSrcDir, fileSize);
-                final String outLine = this.gson.toJson(entry) + "\n";
+                final ManifestEntry entry = new ManifestEntry(outputFilePath, baseName, manifestSrcDir, fileSize);
+                final String outLine = this.gson.toJson((Object)entry) + "\n";
                 this.manifestStream.write(outLine.getBytes("utf-8"));
             }
         }
@@ -137,8 +133,9 @@ public class FileInfoListing
         final String suffix = this.getBaseName(filePath, srcDir);
         FileInfoListing.LOG.debug((Object)("outputDir: '" + this.outputDir + "'"));
         FileInfoListing.LOG.debug((Object)("suffix: '" + suffix + "'"));
-        FileInfoListing.LOG.debug((Object)("Output path: '" + new Path(this.outputDir, suffix).toString()));
-        return new Path(this.outputDir, suffix).toString();
+        final String outputPath = (suffix == null || suffix.isEmpty()) ? (this.outputDir.toString() + "/") : new Path(this.outputDir, suffix).toString();
+        FileInfoListing.LOG.debug((Object)("Output path: '" + outputPath + "'"));
+        return outputPath;
     }
     
     public void close() {

@@ -10,8 +10,8 @@ public class Options
     
     public Options() {
         super();
-        this.options = new ArrayList<Option>();
-        this.extrArgs = new ArrayList<String>();
+        this.options = Lists.newArrayList();
+        this.extrArgs = Lists.newArrayList();
     }
     
     public OptionWithArg withArg(final String arg, final String description) {

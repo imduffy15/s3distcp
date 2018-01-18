@@ -1,26 +1,22 @@
-package com.amazon.external.elasticmapreduce.s3distcp;
+package com.amazon.elasticmapreduce.s3distcp;
 
+import org.apache.hadoop.mapreduce.*;
 import org.apache.hadoop.io.*;
 import java.io.*;
-import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.conf.*;
 import java.net.*;
 import org.apache.hadoop.fs.*;
 
-public class CreateFileMapper implements Mapper<LongWritable, CreateFileInfo, LongWritable, CreateFileInfo>
+public class CreateFileMapper extends Mapper<LongWritable, CreateFileInfo, LongWritable, CreateFileInfo>
 {
-    protected JobConf conf;
+    protected Mapper.Context conf;
     
-    public void close() throws IOException {
+    protected void setup(final Mapper.Context context) throws IOException, InterruptedException {
+        this.conf = this.conf;
     }
     
-    public void configure(final JobConf conf) {
-        this.conf = conf;
-    }
-    
-    public void map(final LongWritable key, final CreateFileInfo value, final OutputCollector<LongWritable, CreateFileInfo> output, final Reporter reporter) throws IOException {
+    protected void map(final LongWritable key, final CreateFileInfo value, final Mapper.Context context) throws IOException, InterruptedException {
         try {
-            final FileSystem fs = FileSystem.get(new URI(value.fileName.toString()), (Configuration)this.conf);
+            final FileSystem fs = FileSystem.get(new URI(value.fileName.toString()), context.getConfiguration());
             final FSDataOutputStream outputFile = fs.create(new Path(value.fileName.toString()));
             long bytesLeftToWrite = value.fileSize.get();
             final byte[] buffer = new byte[12582912];
@@ -30,7 +26,7 @@ public class CreateFileMapper implements Mapper<LongWritable, CreateFileInfo, Lo
             while (bytesLeftToWrite > buffer.length) {
                 outputFile.write(buffer);
                 bytesLeftToWrite -= buffer.length;
-                reporter.progress();
+                context.progress();
             }
             if (bytesLeftToWrite > 0L) {
                 outputFile.write(buffer, 0, (int)bytesLeftToWrite);
